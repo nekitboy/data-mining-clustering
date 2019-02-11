@@ -105,9 +105,9 @@ y_pred_last = np.copy(Y_pred)
 clustering_layer = ClusteringLayer(10, name='clustering', weights=[k_means.cluster_centers])(encoder.output)
 dec_model = Model(inputs=encoder.input, outputs=clustering_layer)
 dec_model.compile(optimizer=SGD(0.01, 0.9), loss='kld')
-maxiter = 800
+maxiter = 20000
 batch_size = 256
-tol = 1e-3
+tol = 0.001
 update_interval = 140
 
 
@@ -120,13 +120,18 @@ for ite in range(int(maxiter)):
         q = dec_model.predict(X, verbose=0)
         p = target_distribution(q)  # update the auxiliary target distribution p
         # evaluate the clustering performance
-        y_pred = q.argmax(1)
+         y_pred = q.argmax(1)
+        delta_label = np.sum(y_pred != y_pred_last).astype(np.float32) / y_pred.shape[0]
+        y_pred_last = np.copy(y_pred)
+        
+         if ite > 0 and delta_label < tol:
+            break
+           
     print(ite)
 
     idx = index_array[index * batch_size: min((index+1) * batch_size, X.shape[0])]
     loss = dec_model.train_on_batch(x=X[idx], y=p[idx])
     index = index + 1 if (index + 1) * batch_size <= X.shape[0] else 0
-    delta_label = np.sum(y_pred != y_pred_last).astype(np.float32) / y_pred.shape[0]
 
 
 
